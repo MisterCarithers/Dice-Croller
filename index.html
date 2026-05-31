@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice Croller</title>
+<meta name="description" content="Shared tabletop dice roller for D&D, Star Wars FFG, Shadowrun, and Cyberpunk Red">
+<meta name="theme-color" content="#0f0f0f">
+<link rel="manifest" href="manifest.json">
+
+<!-- ============================================================
+     FIREBASE SETUP
+     1. Go to https://console.firebase.google.com
+     2. Click "Add project" (free, no credit card needed)
+     3. Once created, click the </> Web icon to add a web app
+     4. Copy the firebaseConfig object values into the variables below
+     ============================================================ -->
+<script>
+  window.FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyBq3QFbtBB2pyHI1frx1IzuJVxs08radQg",
+    authDomain:        "steelsdiceroller.firebaseapp.com",
+    databaseURL:       "https://steelsdiceroller-default-rtdb.firebaseio.com/",
+    projectId:         "steelsdiceroller",
+    storageBucket:     "steelsdiceroller.firebasestorage.app",
+    messagingSenderId: "545689647303",
+    appId:             "1:545689647303:web:8c332aa548737654e826e2",
+	measurementID:	   "G-8P5ECHN4WX"
+  };
+  // Also make sure Realtime Database is enabled in your Firebase project:
+  // Firebase console → Build → Realtime Database → Create database → Start in test mode
+</script>
+
+<style>
+  /* ── Google Fonts ── */
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@400;500&display=swap');
+
+  :root {
+    --bg:          #0f0f0f;
+    --bg2:         #1a1a1a;
+    --bg3:         #222;
+    --border:      #2e2e2e;
+    --border2:     #3a3a3a;
+    --text:        #e8e6df;
+    --text2:       #888;
+    --text3:       #555;
+    --accent:      #c8a84b;
+    --accent2:     #e6c96e;
+    --danger:      #c0392b;
+    --success:     #27ae60;
+    --info:        #2980b9;
+    --radius:      6px;
+    --radius-lg:   10px;
+    --font-head:   'Rajdhani', sans-serif;
+    --font-body:   'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .app { max-width: 860px; margin: 0 auto; padding: 0 16px 80px; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 24px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+  header h1 {
+    font-family: var(--font-head);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  header .subtitle { font-size: 12px; color: var(--text3); letter-spacing: .05em; text-transform: uppercase; }
+
+  .dice-icon {
+    width: 40px; height: 40px;
+    background: var(--accent);
+    border-radius: var(--radius);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  /* ── Two-column layout ── */
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 700px) {
+    .columns { grid-template-columns: 1fr; }
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+  .card-header-left {
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text2);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .card-body { padding: 14px; }
+
+  /* ── Room panel ── */
+  .room-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .room-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  .room-status {
+    display: flex; align-items: center; gap: 7px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border2);
+    flex-shrink: 0;
+    transition: background .3s;
+  }
+  .status-dot.live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.connecting { background: var(--accent); }
+
+  /* ── Form elements ── */
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+  input[type=text], input[type=number] {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input[type=text]:focus, input[type=number]:focus { border-color: var(--accent); }
+  input[type=number] { width: 72px; }
+  input::placeholder { color: var(--text3); }
+
+  /* ── Buttons ── */
+  button {
+    font-family: var(--font-body);
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: background .12s, transform .08s, opacity .12s;
+  }
+  button:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    color: #0f0f0f;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 16px;
+    letter-spacing: .04em;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-size: 12px;
+    padding: 7px 12px;
+  }
+  .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+  .btn-icon {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 28px; height: 28px;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-roll {
+    background: var(--accent);
+    border: none;
+    color: #0f0f0f;
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: 9px 20px;
+    text-transform: uppercase;
+  }
+  .btn-roll:hover { background: var(--accent2); }
+  .btn-roll:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+    gap: 0;
+    overflow-x: auto;
+  }
+  .tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    color: var(--text2);
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: 9px 16px;
+    white-space: nowrap;
+    transition: color .12s, border-color .12s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Dice grids ── */
+  .sec-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+  .dice-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+  .die-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--font-head);
+    font-size: 16px;
+    font-weight: 600;
+    padding: 8px 12px;
+    min-width: 54px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    transition: border-color .12s, background .12s;
+  }
+  .die-btn:hover { border-color: var(--accent); background: #222; }
+  .die-btn.active { border-color: var(--accent); background: #1e1a10; color: var(--accent); }
+  .die-btn .die-sub { font-size: 10px; font-family: var(--font-body); font-weight: 400; color: var(--text3); }
+  .die-btn.active .die-sub { color: #8a7030; }
+
+  /* ── Modifier row ── */
+  .mod-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+
+  /* ── Qty control ── */
+  .qty-wrap { display: flex; align-items: center; gap: 5px; }
+  .qty-num { font-size: 14px; font-weight: 600; min-width: 18px; text-align: center; color: var(--text); font-family: var(--font-head); }
+
+  /* ── Note text ── */
+  .note { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+
+  /* ── SW Pool builder ── */
+  .sw-pool-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .sw-pool-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sw-pool-hdr-lbl { font-size: 11px; color: var(--text2); font-weight: 500; }
+  .sw-die-rows { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .sw-die-row { display: flex; align-items: center; gap: 10px; }
+  .sw-die-chip {
+    display: inline-flex; align-items: center;
+    border-radius: var(--radius);
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 110px;
+    font-family: var(--font-head);
+    letter-spacing: .05em;
+  }
+  .sw-die-chip .chip-sym { font-size: 10px; opacity: .75; margin-left: 5px; font-weight: 400; }
+  .sw-tray {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+    display: flex; flex-wrap: wrap; gap: 5px;
+    min-height: 42px; align-items: center;
+  }
+  .tray-die {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius);
+    width: 32px; height: 32px;
+    font-size: 11px; font-weight: 700;
+    font-family: var(--font-head);
+    letter-spacing: .04em;
+    animation: pop .15s ease;
+  }
+  .tray-empty { font-size: 12px; color: var(--text3); }
+
+  /* ── SW bonus symbols ── */
+  .sw-bonus-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sym-adder { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .sym-adder .sym-lbl { font-size: 10px; color: var(--text3); }
+  .sym-adder .sym-btns { display: flex; align-items: center; gap: 4px; }
+  .sym-chip {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: none; cursor: pointer;
+    font-size: 10px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .08s;
+  }
+  .sym-chip:active { transform: scale(0.9); }
+  .sym-count { font-size: 12px; font-weight: 600; min-width: 14px; text-align: center; color: var(--text); font-family: var(--font-head); }
+
+  /* ── SW legend ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .leg-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text2); }
+  .leg-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700;
+  }
+
+  /* ── Feed ── */
+  .feed-body {
+    padding: 8px 14px;
+    min-height: 100px;
+    max-height: 480px;
+    overflow-y: auto;
+  }
+  .feed-body::-webkit-scrollbar { width: 4px; }
+  .feed-body::-webkit-scrollbar-track { background: transparent; }
+  .feed-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .feed-empty { font-size: 13px; color: var(--text3); padding: 16px 0; text-align: center; }
+  .rroll {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    animation: fadein .2s ease;
+  }
+  .rroll:last-child { border-bottom: none; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .rroll-hdr { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; flex-wrap: wrap; }
+  .r-player { font-size: 13px; font-weight: 600; font-family: var(--font-head); letter-spacing: .04em; color: var(--accent); }
+  .r-player.remote { color: #5dade2; }
+  .r-sys {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 20px;
+    background: var(--bg3); color: var(--text2);
+  }
+  .r-label { font-size: 11px; color: var(--text2); font-style: italic; }
+  .r-time { font-size: 11px; color: var(--text3); margin-left: auto; font-variant-numeric: tabular-nums; }
+  .rfaces { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; align-items: center; }
+  .die-face {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 5px; font-weight: 600; font-size: 12px;
+    animation: pop .15s ease;
+    font-family: var(--font-head);
+  }
+  .nface {
+    min-width: 28px; height: 28px; padding: 0 5px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text);
+  }
+  .nface.hi { background: #1a3a1a; border-color: #27ae60; color: #2ecc71; }
+  .nface.lo { background: #3a1a1a; border-color: #c0392b; color: #e74c3c; }
+  .sface { width: 30px; height: 30px; border-radius: 50%; font-size: 11px; }
+  .sface.bonus { outline: 1.5px dashed; opacity: .8; }
+  .die-group-sep { font-size: 11px; color: var(--text3); align-self: center; padding: 0 2px; }
+  .rsummary { font-size: 12px; color: var(--text2); line-height: 1.7; margin-top: 2px; }
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    font-family: var(--font-head); letter-spacing: .04em;
+  }
+  .badge-success { background: #1a3a1a; color: #2ecc71; }
+  .badge-danger  { background: #3a1a1a; color: #e74c3c; }
+  .badge-warn    { background: #3a2e10; color: #f39c12; }
+  .badge-crit    { background: #3a1a1a; color: #e74c3c; border: 1px solid #e74c3c; }
+
+  /* ── Offline banner ── */
+  .offline-banner {
+    display: none;
+    background: #3a2e10;
+    border: 1px solid #856010;
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #f39c12;
+    margin-bottom: 12px;
+  }
+  .offline-banner.show { display: block; }
+
+  /* ── PWA install prompt ── */
+  .install-banner {
+    display: none;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .install-banner.show { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="dice-icon">⚄</div>
+    <div>
+      <h1>Dice Croller</h1>
+      <div class="subtitle">Shared tabletop dice roller</div>
+    </div>
+  </header>
+
+  <!-- PWA install prompt -->
+  <div class="install-banner" id="install-banner">
+    <span>📱</span>
+    <span>Install as an app for quick access</span>
+    <button class="btn-primary" style="margin-left:auto;padding:5px 12px;font-size:12px;" id="install-btn">Install</button>
+    <button class="btn-ghost" style="padding:5px 10px;font-size:11px;" onclick="document.getElementById('install-banner').classList.remove('show')">Dismiss</button>
+  </div>
+
+  <!-- Offline banner -->
+  <div class="offline-banner" id="offline-banner">
+    ⚠ You appear to be offline. Rolls will be saved locally and won't sync until you reconnect.
+  </div>
+
+  <!-- Room panel -->
+  <div class="room-panel">
+    <div class="room-row">
+      <div class="field">
+        <label for="player-name">Your name</label>
+        <input type="text" id="player-name" placeholder="Enter your name" style="width:150px;" maxlength="24">
+      </div>
+      <div class="field">
+        <label for="room-code">Room code</label>
+        <input type="text" id="room-code" placeholder="e.g. rebel42" style="width:120px;" maxlength="20">
+      </div>
+      <button class="btn-primary" onclick="joinRoom()" style="align-self:flex-end;">Join room</button>
+      <button class="btn-ghost" onclick="genRoom()" style="align-self:flex-end;">Random</button>
+    </div>
+    <div class="room-status">
+      <div class="status-dot" id="room-dot"></div>
+      <span id="room-status-txt">Not connected — enter your name and a room code</span>
+    </div>
+  </div>
+
+  <div class="columns">
+    <!-- Left: dice roller -->
+    <div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('dnd',this)">D&amp;D</button>
+        <button class="tab" onclick="switchTab('starwars',this)">Star Wars FFG</button>
+        <button class="tab" onclick="switchTab('shadowrun',this)">Shadowrun</button>
+        <button class="tab" onclick="switchTab('cyberpunk',this)">Cyberpunk Red</button>
+      </div>
+
+      <!-- D&D panel -->
+      <div id="panel-dnd" class="panel active">
+        <div class="sec-label">Dice</div>
+        <div class="dice-grid" id="dnd-dice"></div>
+        <div class="mod-row">
+          <div class="field">
+            <label>Qty</label>
+            <div class="qty-wrap">
+              <button class="btn-icon" onclick="changeQty(-1)">−</button>
+              <span class="qty-num" id="dnd-qty">1</span>
+              <button class="btn-icon" onclick="changeQty(1)">+</button>
+            </div>
+          </div>
+          <div class="field"><label>Modifier (+/−)</label><input type="number" id="dnd-mod" value="0"></div>
+          <div class="field"><label>Label</label><input type="text" id="dnd-label" placeholder="e.g. Longsword attack" style="width:170px;"></div>
+          <button class="btn-roll" style="align-self:flex-end;" onclick="rollDnD()">Roll ↯</button>
+        </div>
+      </div>
+
+      <!-- Star Wars panel -->
+      <div id="panel-starwars" class="panel">
+        <div class="sec-label">Pool builder — add each die type</div>
+        <div class="sw-pool-card">
+          <div class="sw-pool-hdr">
+            <span class="sw-pool-hdr-lbl">Your dice pool</span>
+            <button class="btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="clearSWPool()">Clear pool</button>
+          </div>
+          <div class="sw-die-rows" id="sw-die-rows"></div>
+          <div class="sw-tray" id="sw-tray"><span class="tray-empty">No dice added yet</span></div>
+        </div>
+        <div class="legend" id="sw-legend"></div>
+        <div class="sec-label">Bonus symbols (talents, destiny, situational)</div>
+        <div class="sw-bonus-row" id="sw-bonus-row"></div>
+        <div class="mod-row">
+          <div class="field"><label>Label</label><input type="text" id="sw-label" placeholder="e.g. Piloting check" style="width:200px;"></div>
+          <button class="btn-roll" style="align-self:flex-end;" onclick="rollSW()">Roll pool ↯</button>
+        </div>
+      </div>
+
+      <!-- Shadowrun panel -->
+      <div id="panel-shadowrun" class="panel">
+        <p class="note">Roll a pool of d6s. 5 or 6 = hit. Half or more 1s = Glitch. Zero hits + Glitch = Critical Glitch.</p>
+        <div class="mod-row">
+          <div class="field"><label>Pool size</label>
+            <div class="qty-wrap">
+              <button class="btn-icon" onclick="changeSRP(-1)">−</button>
+              <span class="qty-num" id="sr-pool">6</span>
+              <button class="btn-icon" onclick="changeSRP(1)">+</button>
+            </div>
+          </div>
+          <div class="field"><label>Threshold</label>
+            <div class="qty-wrap">
+              <button class="btn-icon" onclick="changeSRT(-1)">−</button>
+              <span class="qty-num" id="sr-thresh">2</span>
+              <button class="btn-icon" onclick="changeSRT(1)">+</button>
+            </div>
+          </div>
+          <div class="field"><label>Edge bonus dice</label>
+            <div class="qty-wrap">
+              <button class="btn-icon" onclick="changeSRE(-1)">−</button>
+              <span class="qty-num" id="sr-edge">0</span>
+              <button class="btn-icon" onclick="changeSRE(1)">+</button>
+            </div>
+          </div>
+          <div class="field"><label>Label</label><input type="text" id="sr-label" placeholder="e.g. Hacking" style="width:150px;"></div>
+          <button class="btn-roll" style="align-self:flex-end;" onclick="rollSR()">Roll pool ↯</button>
+        </div>
+      </div>
+
+      <!-- Cyberpunk Red panel -->
+      <div id="panel-cyberpunk" class="panel">
+        <p class="note">Skill die (d10) explodes on 10, implodes on 1. Set Stat+Skill and DV for pass/fail verdict.</p>
+        <div class="dice-grid" id="cp-dice"></div>
+        <div class="mod-row">
+          <div class="field"><label>Qty</label>
+            <div class="qty-wrap">
+              <button class="btn-icon" onclick="changeQty(-1)">−</button>
+              <span class="qty-num" id="cp-qty">1</span>
+              <button class="btn-icon" onclick="changeQty(1)">+</button>
+            </div>
+          </div>
+          <div class="field"><label>Stat + Skill</label><input type="number" id="cp-stat" value="0"></div>
+          <div class="field"><label>Difficulty (DV)</label><input type="number" id="cp-dv" value="0" style="width:80px;"></div>
+          <div class="field"><label>Label</label><input type="text" id="cp-label" placeholder="e.g. Interface" style="width:150px;"></div>
+          <button class="btn-roll" style="align-self:flex-end;" onclick="rollCP()">Roll ↯</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: live feed -->
+    <div>
+      <div class="card" style="position:sticky;top:16px;">
+        <div class="card-header">
+          <span class="card-header-left">⚡ Roll feed</span>
+          <button class="btn-ghost" style="padding:3px 10px;font-size:11px;" onclick="clearFeedUI()">Clear</button>
+        </div>
+        <div class="feed-body" id="feed-body">
+          <p class="feed-empty">Rolls will appear here in real time</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     FIREBASE SDK  (loaded from CDN — no npm needed)
+     ============================================================ -->
+<script type="module">
+  import { initializeApp }              from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, push, onChildAdded, serverTimestamp, query, limitToLast, orderByKey }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // ── Init ──────────────────────────────────────────────────────
+  const firebaseApp = initializeApp(window.FIREBASE_CONFIG);
+  const db          = getDatabase(firebaseApp);
+
+  let roomRef       = null;
+  let unsubscribe   = null;
+  let playerName    = '';
+  let roomCode      = '';
+  let connected     = false;
+
+  // Expose to global scope so inline onclick handlers can reach them
+  window._firebase = { push, ref, db, onChildAdded, serverTimestamp, query, limitToLast, orderByKey };
+  window._setConnected = (roomCode, isConnected) => {
+  connected = isConnected;
+  
+  if (!isConnected) {
+    if (unsubscribe) unsubscribe();
+    roomRef = null;
+    return;
+  }
+
+  roomRef = ref(db, 'rooms/' + roomCode);
+
+  // Listen for incoming rolls (last 50, then all new ones)
+  const recentQ = query(roomRef, orderByKey(), limitToLast(50));
+  if (unsubscribe) unsubscribe();
+  
+  unsubscribe = onChildAdded(recentQ, (snapshot) => {
+    const roll = snapshot.val();
+    if (!roll) return;
+    
+    // Always fetch the live current name from your input field dynamically
+    const currentInputName = document.getElementById('player-name').value.trim() || 'Anonymous';
+    
+    // Determine if the roll is from another player
+    const isRemote = roll.player !== currentInputName;
+    appendToFeed(roll, isRemote);
+  });
+};
+
+window._broadcastRoll = async (rollObj) => {
+  rollObj.ts = Date.now();
+  
+  // Fetch the live current name from your input field dynamically
+  const currentInputName = document.getElementById('player-name').value.trim() || 'Anonymous';
+  rollObj.player = currentInputName;
+
+  // If we aren't connected to a room, manually show it locally 
+  // since Firebase won't be echoing it back to us.
+  if (!connected || !roomRef) {
+    appendToFeed(rollObj, false);
+    return;
+  }
+  
+  try {
+    // Send straight to the cloud; onChildAdded will handle appending to the screen
+    await push(roomRef, rollObj);
+  } catch (e) {
+    console.warn('Firebase write failed:', e);
+    // Fallback display on the screen if the network drops mid-roll
+    appendToFeed(rollObj, false);
+  }
+};
+</script>
+
+<!-- ============================================================
+     APP LOGIC  (non-module, runs after Firebase module above)
+     ============================================================ -->
+<script>
+// ── Data ─────────────────────────────────────────────────────────────────────
+
+const DND_DICE = [
+  {id:'d4',f:4},{id:'d6',f:6},{id:'d8',f:8},
+  {id:'d10',f:10},{id:'d12',f:12},{id:'d20',f:20},{id:'d%',f:100}
+];
+
+const SW_DICE = [
+  {id:'boost',      label:'Boost',      sym:'d6',  color:'#B5D4F4',tc:'#0C447C',  faces:['—','—','S','SA','AA','A']},
+  {id:'setback',    label:'Setback',    sym:'d6',  color:'#3a3a38',tc:'#D3D1C7',  faces:['—','—','F','F','T','T']},
+  {id:'ability',    label:'Ability',    sym:'d8',  color:'#97C459',tc:'#173404',  faces:['—','S','S','SS','A','SA','AA','T']},
+  {id:'difficulty', label:'Difficulty', sym:'d8',  color:'#AFA9EC',tc:'#26215C',  faces:['—','F','FF','T','T','T','TT','FT']},
+  {id:'proficiency',label:'Proficiency',sym:'d12', color:'#FAC775',tc:'#412402',  faces:['—','S','S','SS','SS','A','SA','SA','SA','AA','AA','TR']},
+  {id:'challenge',  label:'Challenge',  sym:'d12', color:'#E07070',tc:'#501313',  faces:['—','F','F','FF','FF','T','T','FT','FT','TT','TT','DF']},
+  {id:'force',      label:'Force',      sym:'d12', color:'#ccc8c0',tc:'#2C2C2A',  faces:['D','D','D','D','D','D','DD','L','L','LL','LL','LL']},
+];
+
+const SW_LEG = [
+  {s:'S', f:'Success',   bg:'#EAF3DE',tc:'#27500A'},
+  {s:'F', f:'Failure',   bg:'#FCEBEB',tc:'#A32D2D'},
+  {s:'A', f:'Advantage', bg:'#E6F1FB',tc:'#0C447C'},
+  {s:'T', f:'Threat',    bg:'#EEEDFE',tc:'#3C3489'},
+  {s:'TR',f:'Triumph',   bg:'#FAEEDA',tc:'#633806'},
+  {s:'DF',f:'Despair',   bg:'#FAECE7',tc:'#712B13'},
+  {s:'L', f:'Light',     bg:'#F1EFE8',tc:'#5F5E5A'},
+  {s:'D', f:'Dark',      bg:'#888780',tc:'#2C2C2A'},
+];
+
+const SW_BONUS_SYMS = [
+  {s:'S', label:'Success', bg:'#EAF3DE',tc:'#27500A'},
+  {s:'F', label:'Failure', bg:'#FCEBEB',tc:'#A32D2D'},
+  {s:'A', label:'Adv',     bg:'#E6F1FB',tc:'#0C447C'},
+  {s:'T', label:'Threat',  bg:'#EEEDFE',tc:'#3C3489'},
+  {s:'TR',label:'Triumph', bg:'#FAEEDA',tc:'#633806'},
+  {s:'DF',label:'Despair', bg:'#FAECE7',tc:'#712B13'},
+];
+
+const CP_DICE = [
+  {id:'cp_d10',label:'d10',name:'Skill die',f:10,type:'cp'},
+  {id:'cp_d6', label:'d6', name:'Damage',   f:6},
+  {id:'cp_2d6',label:'2d6',name:'Dmg med',  f:6,cnt:2},
+  {id:'cp_3d6',label:'3d6',name:'Dmg high', f:6,cnt:3},
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let selectedDnDDie = null;
+let selectedCPDie  = null;
+let qty            = 1;
+let currentTab     = 'dnd';
+let srPool         = 6, srThresh = 2, srEdge = 0;
+let swPoolCounts   = {boost:0,setback:0,ability:0,difficulty:0,proficiency:0,challenge:0,force:0};
+let swBonusState   = {S:0,F:0,A:0,T:0,TR:0,DF:0};
+
+// ── Room / connection ─────────────────────────────────────────────────────────
+function genRoom() {
+  const w = ['shadow','rebel','force','chrome','wizard','rogue','neon','runner','jedi','sith'];
+  const code = w[Math.floor(Math.random()*w.length)] + Math.floor(10+Math.random()*90);
+  document.getElementById('room-code').value = code;
+}
+
+function joinRoom() {
+  const name = document.getElementById('player-name').value.trim();
+  const code = document.getElementById('room-code').value.trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+  if (!name) { alert('Please enter your name first.'); return; }
+  if (!code) { alert('Please enter a room code.'); return; }
+
+  // Persist name across sessions
+  try { localStorage.setItem('dicecroller_name', name); } catch(e){}
+
+  setStatus('Connecting…', 'connecting');
+  document.getElementById('room-code').value = code;
+
+  // Check Firebase is configured
+  if (FIREBASE_CONFIG.apiKey === 'PASTE_YOUR_apiKey_HERE') {
+    setStatus('Firebase not configured — rolls are local only', 'off');
+    // Still allow local rolling
+    return;
+  }
+
+  try {
+    window._setConnected(code, true);
+    setStatus(`Connected to "${code}" as ${name}`, 'live');
+  } catch(e) {
+    setStatus('Connection failed — rolling locally', 'off');
+    console.error(e);
+  }
+}
+
+function setStatus(txt, state) {
+  document.getElementById('room-status-txt').textContent = txt;
+  const dot = document.getElementById('room-dot');
+  dot.className = 'status-dot' + (state === 'live' ? ' live' : state === 'connecting' ? ' connecting' : '');
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ── Qty / counter controls ─────────────────────────────────────────────────────
+function changeQty(d) {
+  qty = Math.max(1, Math.min(20, qty + d));
+  ['dnd-qty','cp-qty'].forEach(id => { const el=document.getElementById(id); if(el) el.textContent=qty; });
+}
+function changeSRP(d) { srPool   = Math.max(1,  Math.min(30, srPool   + d)); document.getElementById('sr-pool').textContent   = srPool; }
+function changeSRT(d) { srThresh = Math.max(1,  Math.min(20, srThresh + d)); document.getElementById('sr-thresh').textContent = srThresh; }
+function changeSRE(d) { srEdge   = Math.max(0,  Math.min(10, srEdge   + d)); document.getElementById('sr-edge').textContent   = srEdge; }
+
+function changeSWPool(dieId, delta) {
+  swPoolCounts[dieId] = Math.max(0, Math.min(8, (swPoolCounts[dieId]||0) + delta));
+  document.getElementById('sw-count-'+dieId).textContent = swPoolCounts[dieId];
+  renderSWTray();
+}
+function clearSWPool() {
+  SW_DICE.forEach(d => { swPoolCounts[d.id]=0; document.getElementById('sw-count-'+d.id).textContent='0'; });
+  renderSWTray();
+}
+function swBonusChange(s, delta) {
+  swBonusState[s] = Math.max(0, Math.min(6, (swBonusState[s]||0) + delta));
+  document.getElementById('sb-'+s).textContent = swBonusState[s];
+}
+
+// ── Roll functions ─────────────────────────────────────────────────────────────
+function rollDnD() {
+  if (!selectedDnDDie) { alert('Select a die type first.'); return; }
+  const mod   = parseInt(document.getElementById('dnd-mod').value) || 0;
+  const label = document.getElementById('dnd-label').value.trim();
+  const faces = [];
+  for (let i = 0; i < qty; i++) faces.push(Math.floor(Math.random() * selectedDnDDie.f) + 1);
+  broadcast({ system:'dnd', faces, mod, dieFaces:selectedDnDDie.f, die:selectedDnDDie.id, label });
+}
+
+function rollSW() {
+  const total = Object.values(swPoolCounts).reduce((a,b)=>a+b,0);
+  const bonusTotal = Object.values(swBonusState).reduce((a,b)=>a+b,0);
+  if (total === 0 && bonusTotal === 0) { alert('Add dice to your pool first.'); return; }
+  const label = document.getElementById('sw-label').value.trim();
+  const poolRolls = SW_DICE.map(die => {
+    const count = swPoolCounts[die.id] || 0;
+    const results = [];
+    for (let i = 0; i < count; i++) results.push(die.faces[Math.floor(Math.random()*die.faces.length)]);
+    return { dieId: die.id, results };
+  }).filter(g => g.results.length > 0);
+  const bonusFlatList = [];
+  SW_BONUS_SYMS.forEach(b => { for (let i=0; i<(swBonusState[b.s]||0); i++) bonusFlatList.push(b.s); });
+  broadcast({ system:'sw', poolRolls, bonusFlatList, label });
+}
+
+function rollSR() {
+  const label = document.getElementById('sr-label').value.trim();
+  const faces = [];
+  for (let i = 0; i < srPool + srEdge; i++) faces.push(Math.floor(Math.random()*6)+1);
+  broadcast({ system:'sr', faces, pool:srPool, edge:srEdge, thresh:srThresh, label });
+}
+
+function rollCP() {
+  if (!selectedCPDie) { alert('Select a die type first.'); return; }
+  const stat  = parseInt(document.getElementById('cp-stat').value) || 0;
+  const dv    = parseInt(document.getElementById('cp-dv').value)   || 0;
+  const label = document.getElementById('cp-label').value.trim();
+  if (selectedCPDie.type === 'cp') {
+    const raw = Math.floor(Math.random()*10)+1;
+    let extra=0, explode=false, implode=false, chain=''+raw;
+    if (raw===10) { explode=true;  extra=Math.floor(Math.random()*10)+1; chain+='+'+extra; }
+    if (raw===1)  { implode=true;  extra=Math.floor(Math.random()*10)+1; chain+='−'+extra; }
+    const total = raw + (explode?extra : implode?-extra : 0);
+    broadcast({ system:'cp', cpType:'skill', raw, explode, implode, extra, chain, total, stat, dv, label });
+  } else {
+    const cnt = selectedCPDie.cnt || qty;
+    const faces = [];
+    for (let i=0; i<cnt; i++) faces.push(Math.floor(Math.random()*selectedCPDie.f)+1);
+    broadcast({ system:'cp', cpType:'damage', faces, die:selectedCPDie.label, label });
+  }
+}
+
+// Route through Firebase module if available, else show locally
+function broadcast(rollObj) {
+  if (window._broadcastRoll) {
+    window._broadcastRoll(rollObj);
+  } else {
+    rollObj.ts     = Date.now();
+    rollObj.player = document.getElementById('player-name').value.trim() || 'Anonymous';
+    appendToFeed(rollObj, false);
+  }
+}
+
+// ── Feed rendering ─────────────────────────────────────────────────────────────
+function formatTime(ts) {
+  const d = new Date(ts);
+  const h = d.getHours().toString().padStart(2,'0');
+  const m = d.getMinutes().toString().padStart(2,'0');
+  const s = d.getSeconds().toString().padStart(2,'0');
+  return `${h}:${m}:${s}`;
+}
+
+function appendToFeed(roll, isRemote) {
+  const fb = document.getElementById('feed-body');
+  if (fb.querySelector('.feed-empty')) fb.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'rroll';
+  div.innerHTML = buildRollHTML(roll, isRemote);
+  fb.insertBefore(div, fb.firstChild);
+  // Keep feed from growing forever in the DOM
+  const rows = fb.querySelectorAll('.rroll');
+  if (rows.length > 80) rows[rows.length-1].remove();
+}
+
+function clearFeedUI() {
+  document.getElementById('feed-body').innerHTML = '<p class="feed-empty">Rolls will appear here in real time</p>';
+}
+
+function buildRollHTML(roll, isRemote) {
+  const nameClass = isRemote ? 'r-player remote' : 'r-player';
+  const time      = roll.ts ? formatTime(roll.ts) : '';
+  const desc      = roll.label ? `<span class="r-label">"${roll.label}"</span>` : '';
+  let facesHTML = '', summaryHTML = '';
+
+  if (roll.system === 'dnd') {
+    facesHTML = roll.faces.map(v => {
+      const isMax = v === roll.dieFaces;
+      const isMin = v === 1 && roll.dieFaces > 4;
+      const cls   = isMax ? 'nface hi' : isMin ? 'nface lo' : 'nface';
+      return `<span class="die-face ${cls}">${v}</span>`;
+    }).join('');
+    const raw   = roll.faces.reduce((a,b)=>a+b,0);
+    const total = raw + (roll.mod||0);
+    const modStr = (roll.mod||0) > 0 ? ` + ${roll.mod}` : (roll.mod||0) < 0 ? ` − ${Math.abs(roll.mod)}` : '';
+    const nat    = roll.faces.length===1 && roll.dieFaces===20 ? (roll.faces[0]===20?' <strong style="color:#f1c40f">Nat 20!</strong>':roll.faces[0]===1?' <strong style="color:#e74c3c">Nat 1!</strong>':'') : '';
+    summaryHTML  = `<div class="rsummary">Total: <strong>${total}</strong>${modStr?` (${raw}${modStr})`:''}${nat}</div>`;
+
+  } else if (roll.system === 'sw') {
+    const byDie = roll.poolRolls || [];
+    byDie.forEach((group, i) => {
+      const die = SW_DICE.find(d => d.id === group.dieId);
+      if (!die || !group.results.length) return;
+      if (i > 0 && facesHTML) facesHTML += `<span class="die-group-sep">/</span>`;
+      facesHTML += group.results.map(v =>
+        `<span class="die-face sface" style="background:${swSymBg(v)};color:${swSymTc(v)};" title="${die.label}">${swDisp(v)}</span>`
+      ).join('');
+    });
+    const bonusList = roll.bonusFlatList || [];
+    if (bonusList.length) {
+      facesHTML += `<span class="die-group-sep">+</span>`;
+      facesHTML += bonusList.map(v =>
+        `<span class="die-face sface bonus" style="background:${swSymBg(v)};color:${swSymTc(v)};outline-color:${swSymTc(v)};" title="Bonus">${swDisp(v)}</span>`
+      ).join('');
+    }
+    const allSyms = [...byDie.flatMap(g=>g.results), ...bonusList];
+    const poolDesc = byDie.filter(g=>g.results.length).map(g=>{
+      const d = SW_DICE.find(d=>d.id===g.dieId);
+      return `${g.results.length}${d?d.label[0].toLowerCase():'?'}`;
+    }).join('+');
+    summaryHTML = `<div class="rsummary" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+      <span style="color:var(--text3);font-size:11px;">[${poolDesc}]</span>
+      ${netSWHtml(allSyms)}</div>`;
+
+  } else if (roll.system === 'sr') {
+    facesHTML = roll.faces.map(v => {
+      const cls = v>=5 ? 'nface hi' : v===1 ? 'nface lo' : 'nface';
+      return `<span class="die-face ${cls}">${v}</span>`;
+    }).join('');
+    const hits   = roll.faces.filter(v=>v>=5).length;
+    const ones   = roll.faces.filter(v=>v===1).length;
+    const glitch = ones >= Math.ceil(roll.pool/2);
+    const crit   = glitch && hits === 0;
+    const pass   = hits >= roll.thresh;
+    const badge  = crit   ? `<span class="badge badge-crit">Critical Glitch</span>`
+                 : glitch ? `<span class="badge badge-warn">Glitch${pass?' (passed)':''}</span>`
+                 : pass   ? `<span class="badge badge-success">Success</span>`
+                           : `<span class="badge badge-danger">Failure</span>`;
+    summaryHTML = `<div class="rsummary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+      ${badge}<span>${hits} hit${hits!==1?'s':''} · thresh ${roll.thresh}${roll.edge>0?` · +${roll.edge} edge`:''}</span></div>`;
+
+  } else if (roll.system === 'cp') {
+    if (roll.cpType === 'skill') {
+      const cls = roll.explode ? 'nface hi' : roll.implode ? 'nface lo' : 'nface';
+      facesHTML  = `<span class="die-face ${cls}">${roll.chain}</span>`;
+      const total = roll.total + (roll.stat||0);
+      const dv    = roll.dv || 0;
+      const badge = dv > 0
+        ? (total>=dv ? `<span class="badge badge-success">Pass vs DV ${dv}</span>`
+                     : `<span class="badge badge-danger">Fail vs DV ${dv}</span>`)
+        : '';
+      const note  = roll.explode ? ' — Exploded!' : roll.implode ? ' — Imploded!' : '';
+      summaryHTML = `<div class="rsummary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+        ${badge}<span>Total: <strong>${total}</strong>${roll.stat?` (${roll.total} + stat ${roll.stat})`:''}${note}</span></div>`;
+    } else {
+      facesHTML   = roll.faces.map(v=>`<span class="die-face nface">${v}</span>`).join('');
+      summaryHTML = `<div class="rsummary">Total: <strong>${roll.faces.reduce((a,b)=>a+b,0)}</strong></div>`;
+    }
+  }
+
+  return `<div class="rroll-hdr">
+    <span class="${nameClass}">${roll.player||'Anonymous'}</span>
+    <span class="r-sys">${roll.system.toUpperCase()}</span>
+    ${desc}
+    <span class="r-time">${time}</span>
+  </div>
+  <div class="rfaces">${facesHTML}</div>
+  ${summaryHTML}`;
+}
+
+// ── SW helpers ────────────────────────────────────────────────────────────────
+function swSymBg(v) {
+  const m = {S:'#EAF3DE',SS:'#C0DD97',F:'#FCEBEB',FF:'#F7C1C1',A:'#E6F1FB',AA:'#B5D4F4',
+    T:'#EEEDFE',TT:'#CECBF6',SA:'#EAF3DE',FT:'#FCEBEB',TR:'#FAEEDA',DF:'#FAECE7',
+    L:'#F1EFE8',D:'#888780',LL:'#D3D1C7',DD:'#B4B2A9','—':'#2e2e2e'};
+  return m[v] || '#2e2e2e';
+}
+function swSymTc(v) {
+  const m = {S:'#27500A',SS:'#173404',F:'#A32D2D',FF:'#791F1F',A:'#0C447C',AA:'#042C53',
+    T:'#3C3489',TT:'#26215C',SA:'#27500A',FT:'#A32D2D',TR:'#633806',DF:'#712B13',
+    L:'#5F5E5A',D:'#2C2C2A',LL:'#444441',DD:'#2C2C2A','—':'#555'};
+  return m[v] || '#888';
+}
+function swDisp(v) {
+  const m = {'—':'·',TR:'✦',DF:'✸',L:'☀',LL:'☀☀',D:'☽',DD:'☽☽'};
+  return m[v] || v;
+}
+function netSWHtml(rolls) {
+  let s=0,f=0,a=0,t=0,tr=0,df=0,l=0,d=0;
+  rolls.forEach(v=>{
+    switch(v){
+      case 'S':s++;break;case 'SS':s+=2;break;
+      case 'F':f++;break;case 'FF':f+=2;break;
+      case 'A':a++;break;case 'AA':a+=2;break;
+      case 'T':t++;break;case 'TT':t+=2;break;
+      case 'SA':s++;a++;break;case 'FT':f++;t++;break;
+      case 'TR':tr++;break;case 'DF':df++;break;
+      case 'L':l++;break;case 'LL':l+=2;break;
+      case 'D':d++;break;case 'DD':d+=2;break;
+    }
+  });
+  const ns=s-f+tr, na=a-t;
+  const parts=[];
+  if(ns>0)  parts.push(`<span style="color:#2ecc71;font-weight:500;">${ns} Success${ns>1?'es':''}</span>`);
+  else if(ns<0) parts.push(`<span style="color:#e74c3c;font-weight:500;">${Math.abs(ns)} Failure${Math.abs(ns)>1?'s':''}</span>`);
+  if(na>0)  parts.push(`<span style="color:#5dade2;font-weight:500;">${na} Advantage</span>`);
+  else if(na<0) parts.push(`<span style="color:#a29bfe;font-weight:500;">${Math.abs(na)} Threat</span>`);
+  if(tr>0)  parts.push(`<span style="color:#f39c12;">Triumph ✦</span>`);
+  if(df>0)  parts.push(`<span style="color:#e67e22;">Despair ✸</span>`);
+  if(l>0)   parts.push(`<span style="color:#bbb;">${l} Light ☀</span>`);
+  if(d>0)   parts.push(`<span style="color:#888;">${d} Dark ☽</span>`);
+  if(!parts.length) parts.push(`<span style="color:var(--text3);">Wash — no net effect</span>`);
+  return parts.join(' · ');
+}
+
+// ── Render all initial UI ─────────────────────────────────────────────────────
+function renderAll() {
+  // D&D dice
+  document.getElementById('dnd-dice').innerHTML = DND_DICE.map(d =>
+    `<button class="die-btn" onclick="
+      selectedDnDDie=DND_DICE.find(x=>x.id==='${d.id}');
+      document.querySelectorAll('#panel-dnd .die-btn').forEach(b=>b.classList.remove('active'));
+      this.classList.add('active');
+    "><span>${d.id}</span></button>`
+  ).join('');
+
+  // SW pool builder rows
+  document.getElementById('sw-die-rows').innerHTML = SW_DICE.map(d =>
+    `<div class="sw-die-row">
+      <div class="sw-die-chip" style="background:${d.color};color:${d.tc};">
+        ${d.label}<span class="chip-sym">${d.sym}</span>
+      </div>
+      <div class="qty-wrap">
+        <button class="btn-icon" onclick="changeSWPool('${d.id}',-1)">−</button>
+        <span class="qty-num" id="sw-count-${d.id}">0</span>
+        <button class="btn-icon" onclick="changeSWPool('${d.id}',1)">+</button>
+      </div>
+    </div>`
+  ).join('');
+
+  // SW legend
+  document.getElementById('sw-legend').innerHTML = SW_LEG.map(l =>
+    `<div class="leg-item">
+      <div class="leg-dot" style="background:${l.bg};color:${l.tc};">${l.s}</div>
+      ${l.f}
+    </div>`
+  ).join('');
+
+  // SW bonus symbols
+  document.getElementById('sw-bonus-row').innerHTML = SW_BONUS_SYMS.map(b =>
+    `<div class="sym-adder">
+      <div class="sym-btns">
+        <button class="sym-chip" style="background:${b.bg};color:${b.tc};" onclick="swBonusChange('${b.s}',-1)">−</button>
+        <span class="sym-count" id="sb-${b.s}">0</span>
+        <button class="sym-chip" style="background:${b.bg};color:${b.tc};" onclick="swBonusChange('${b.s}',1)">+</button>
+      </div>
+      <span class="sym-lbl">${b.label}</span>
+    </div>`
+  ).join('');
+
+  // CP dice
+  document.getElementById('cp-dice').innerHTML = CP_DICE.map(d =>
+    `<button class="die-btn" onclick="
+      selectedCPDie=CP_DICE.find(x=>x.id==='${d.id}');
+      document.querySelectorAll('#panel-cyberpunk .die-btn').forEach(b=>b.classList.remove('active'));
+      this.classList.add('active');
+    "><span>${d.label}</span><span class="die-sub">${d.name}</span></button>`
+  ).join('');
+}
+
+function renderSWTray() {
+  const tray  = document.getElementById('sw-tray');
+  const chips = [];
+  SW_DICE.forEach(die => {
+    const cnt = swPoolCounts[die.id] || 0;
+    for (let i=0; i<cnt; i++) {
+      chips.push(`<span class="tray-die" style="background:${die.color};color:${die.tc};" title="${die.label}">${die.label[0]}<sub style="font-size:8px;">${die.sym}</sub></span>`);
+    }
+  });
+  tray.innerHTML = chips.length
+    ? chips.join('')
+    : '<span class="tray-empty">No dice added yet</span>';
+}
+
+// ── Offline detection ─────────────────────────────────────────────────────────
+window.addEventListener('offline', () => document.getElementById('offline-banner').classList.add('show'));
+window.addEventListener('online',  () => document.getElementById('offline-banner').classList.remove('show'));
+
+// ── PWA install prompt ────────────────────────────────────────────────────────
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('install-banner').classList.add('show');
+});
+document.getElementById('install-btn').addEventListener('click', () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+      document.getElementById('install-banner').classList.remove('show');
+    });
+  }
+});
+
+// ── Restore saved name ────────────────────────────────────────────────────────
+try {
+  const saved = localStorage.getItem('dicecroller_name');
+  if (saved) document.getElementById('player-name').value = saved;
+} catch(e){}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
