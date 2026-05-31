@@ -8,13 +8,6 @@
 <meta name="theme-color" content="#0f0f0f">
 <link rel="manifest" href="manifest.json">
 
-<!-- ============================================================
-     FIREBASE SETUP
-     1. Go to https://console.firebase.google.com
-     2. Click "Add project" (free, no credit card needed)
-     3. Once created, click the </> Web icon to add a web app
-     4. Copy the firebaseConfig object values into the variables below
-     ============================================================ -->
 <script>
   window.FIREBASE_CONFIG = {
     apiKey:            "AIzaSyBq3QFbtBB2pyHI1frx1IzuJVxs08radQg",
@@ -26,8 +19,6 @@
     appId:             "1:545689647303:web:8c332aa548737654e826e2",
 	measurementID:	   "G-8P5ECHN4WX"
   };
-  // Also make sure Realtime Database is enabled in your Firebase project:
-  // Firebase console → Build → Realtime Database → Create database → Start in test mode
 </script>
 
 <style>
@@ -664,7 +655,6 @@ window._broadcastRoll = async (rollObj) => {
   rollObj.player = currentInputName;
 
   // If we aren't connected to a room, manually show it locally 
-  // since Firebase won't be echoing it back to us.
   if (!connected || !roomRef) {
     appendToFeed(rollObj, false);
     return;
