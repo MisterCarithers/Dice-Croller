@@ -4,10 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dice Croller</title>
-<meta name="description" content="Shared tabletop dice roller for D&D, Star Wars FFG, Shadowrun, and Cyberpunk Red">
+<meta name="description" content="Shared tabletop dice roller for D&D, Star Wars FFG, Shadowrun, Cyberpunk Red, and Black Crusade">
 <meta name="theme-color" content="#0f0f0f">
 <link rel="manifest" href="manifest.json">
 
+<!-- ============================================================
+     FIREBASE SETUP
+     1. Go to https://console.firebase.google.com
+     2. Click "Add project" (free, no credit card needed)
+     3. Once created, click the </> Web icon to add a web app
+     4. Copy the firebaseConfig object values into the variables below
+     ============================================================ -->
 <script>
   window.FIREBASE_CONFIG = {
     apiKey:            "AIzaSyBq3QFbtBB2pyHI1frx1IzuJVxs08radQg",
@@ -19,6 +26,8 @@
     appId:             "1:545689647303:web:8c332aa548737654e826e2",
 	measurementID:	   "G-8P5ECHN4WX"
   };
+  // Also make sure Realtime Database is enabled in your Firebase project:
+  // Firebase console → Build → Realtime Database → Create database → Start in test mode
 </script>
 
 <style>
@@ -165,6 +174,7 @@
     transition: border-color .15s;
   }
   input[type=text]:focus, input[type=number]:focus { border-color: var(--accent); }
+  select:focus { border-color: var(--accent); outline: none; }
   input[type=number] { width: 72px; }
   input::placeholder { color: var(--text3); }
 
@@ -493,6 +503,7 @@
         <button class="tab" onclick="switchTab('starwars',this)">Star Wars FFG</button>
         <button class="tab" onclick="switchTab('shadowrun',this)">Shadowrun</button>
         <button class="tab" onclick="switchTab('cyberpunk',this)">Cyberpunk Red</button>
+        <button class="tab" onclick="switchTab('bc',this)">Black Crusade</button>
       </div>
 
       <!-- D&D panel -->
@@ -582,6 +593,162 @@
           <button class="btn-roll" style="align-self:flex-end;" onclick="rollCP()">Roll ↯</button>
         </div>
       </div>
+      <!-- Black Crusade panel -->
+      <div id="panel-bc" class="panel">
+
+        <!-- ── Roll type selector ── -->
+        <div class="sec-label">Roll type</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;">
+          <button class="die-btn active" id="bc-type-melee"   onclick="setBCType('melee',this)"  style="min-width:0;padding:7px 14px;">⚔ Melee</button>
+          <button class="die-btn"        id="bc-type-ranged"  onclick="setBCType('ranged',this)" style="min-width:0;padding:7px 14px;">🎯 Ranged</button>
+          <button class="die-btn"        id="bc-type-other"   onclick="setBCType('other',this)"  style="min-width:0;padding:7px 14px;">🎲 Other Test</button>
+        </div>
+
+        <!-- ── Shared: Characteristic + Mod + label ── -->
+        <div class="mod-row" style="flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+          <div class="field">
+            <label id="bc-char-label">Weapon Skill</label>
+            <input type="number" id="bc-char" value="40" min="1" max="100" style="width:72px;">
+          </div>
+          <div class="field">
+            <label>Situational Mod (+/−)</label>
+            <input type="number" id="bc-mod" value="0" style="width:72px;">
+          </div>
+          <div class="field" id="bc-wsb-field">
+            <label>WS/BS Bonus (max hits)</label>
+            <input type="number" id="bc-wsb" value="4" min="1" max="10" style="width:72px;">
+          </div>
+        </div>
+
+        <!-- ── Melee actions ── -->
+        <div class="mod-row" style="flex-wrap:wrap;gap:10px;margin-bottom:6px;" id="bc-melee-row">
+          <div class="field">
+            <label>Melee Action</label>
+            <select id="bc-melee-action" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font-body);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s;">
+              <option value="standard">Standard Attack (+10 WS, 1 hit)</option>
+              <option value="swift">Swift Attack (+0 WS, 1 hit + 1/2 extra DoS, cap WSB)</option>
+              <option value="lightning">Lightning Attack (−10 WS, 1 hit/DoS, cap WSB)</option>
+              <option value="allout">All Out Attack (+30 WS, 1 hit, no Dodge/Parry)</option>
+              <option value="called_m">Called Shot Melee (−20 WS, 1 hit, choose location)</option>
+              <option value="guarded">Guarded Attack (−10 WS, +10 Parry/Dodge)</option>
+              <option value="knockdown">Knock Down (+0 WS, knock prone on hit)</option>
+            </select>
+          </div>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;align-self:flex-end;padding-bottom:8px;">
+            <input type="checkbox" id="bc-charging" style="accent-color:var(--accent);width:14px;height:14px;">
+            <span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);">Charging (+20)</span>
+          </label>
+          <div class="field">
+            <label>Label</label>
+            <input type="text" id="bc-label" placeholder="e.g. WS vs. Heretic" style="width:200px;">
+          </div>
+          <button class="btn-roll" style="align-self:flex-end;" onclick="rollBC()">Roll d100 ↯</button>
+        </div>
+
+        <!-- ── Ranged actions ── -->
+        <div class="mod-row" style="flex-wrap:wrap;gap:10px;margin-bottom:6px;display:none;" id="bc-ranged-row">
+          <div class="field">
+            <label>Ranged Action</label>
+            <select id="bc-ranged-action" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font-body);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s;">
+              <option value="standard">Standard Attack (+10 BS, 1 hit)</option>
+              <option value="semiauto">Semi-Auto Burst (+0 BS, 1 hit + 1/2 extra DoS, cap RoF)</option>
+              <option value="fullauto">Full Auto Burst (−10 BS, 1 hit/DoS, cap RoF)</option>
+              <option value="called_r">Called Shot Ranged (−20 BS, 1 hit, choose location)</option>
+              <option value="suppressing">Suppressing Fire (−20 BS, force pinning)</option>
+              <option value="overwatch">Overwatch (shoot on trigger condition)</option>
+            </select>
+          </div>
+          <div class="field" id="bc-rof-field">
+            <label>Rate of Fire (max hits)</label>
+            <input type="number" id="bc-rof" value="3" min="1" max="10" style="width:72px;">
+          </div>
+          <div class="field">
+            <label>Label</label>
+            <input type="text" id="bc-label-r" placeholder="e.g. BS vs. traitor guard" style="width:180px;">
+          </div>
+          <button class="btn-roll" style="align-self:flex-end;" onclick="rollBC()">Roll d100 ↯</button>
+        </div>
+
+        <!-- ── Other test ── -->
+        <div class="mod-row" style="flex-wrap:wrap;gap:10px;margin-bottom:6px;display:none;" id="bc-other-row">
+          <div class="field">
+            <label>Difficulty</label>
+            <select id="bc-other-diff" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font-body);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s;">
+              <option value="30">Trivial (+30)</option>
+              <option value="20">Easy (+20)</option>
+              <option value="10">Routine (+10)</option>
+              <option value="0" selected>Challenging (+0)</option>
+              <option value="-10">Difficult (−10)</option>
+              <option value="-20">Hard (−20)</option>
+              <option value="-30">Very Hard (−30)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Label</label>
+            <input type="text" id="bc-label-o" placeholder="e.g. Medicae, Deceive, Awareness…" style="width:220px;">
+          </div>
+          <button class="btn-roll" style="align-self:flex-end;" onclick="rollBC()">Roll d100 ↯</button>
+        </div>
+
+        <p class="note" style="margin-bottom:18px;" id="bc-hint">
+          Swift Attack: 1 hit on first DoS + 1 per 2 additional DoS, max = WS Bonus. &nbsp;
+          Lightning Attack: 1 hit per DoS, max = WS Bonus. &nbsp;
+          DoS/DoF = 1 for succeeding/failing + 1 per full 10 points of margin.
+        </p>
+
+        <!-- ── Damage Roll ── -->
+        <div class="sec-label">Damage Roll (optional — roll separately)</div>
+        <div class="mod-row" style="flex-wrap:wrap;gap:10px;margin-bottom:6px;">
+          <div class="field">
+            <label>d10s to roll</label>
+            <div class="qty-wrap">
+              <button class="btn-icon" onclick="changeBCDmgDice(-1)">−</button>
+              <span class="qty-num" id="bc-dmg-dice">1</span>
+              <button class="btn-icon" onclick="changeBCDmgDice(1)">+</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Flat bonus (+ SB if melee)</label>
+            <input type="number" id="bc-dmg-bonus" value="4" style="width:72px;">
+          </div>
+          <div class="field">
+            <label>Damage type</label>
+            <select id="bc-dmg-type" style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font-body);font-size:13px;padding:7px 10px;outline:none;transition:border-color .15s;">
+              <option value="I">Impact (I)</option>
+              <option value="R">Rending (R)</option>
+              <option value="E">Energy (E)</option>
+              <option value="X">Explosive (X)</option>
+            </select>
+          </div>
+        </div>
+        <div class="mod-row" style="flex-wrap:wrap;gap:14px;margin-bottom:6px;align-items:center;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="bc-tearing" style="accent-color:var(--accent);width:14px;height:14px;">
+            <span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);">Tearing</span>
+          </label>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="bc-proven" style="accent-color:var(--accent);width:14px;height:14px;">
+              <span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);">Proven</span>
+            </label>
+            <input type="number" id="bc-proven-val" value="3" min="1" max="9" style="width:56px;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="bc-primitive" style="accent-color:var(--accent);width:14px;height:14px;">
+              <span style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);">Primitive</span>
+            </label>
+            <input type="number" id="bc-primitive-val" value="7" min="1" max="9" style="width:56px;">
+          </div>
+          <button class="btn-roll" style="align-self:center;" onclick="rollBCDamage()">Roll Damage ↯</button>
+        </div>
+        <p class="note" style="margin-bottom:0;">
+          Tearing: +1 die, drop lowest. Proven (X): minimum die value = X. Primitive (X): maximum die value = X.
+          Zealous Hatred triggers on a natural 10 on any damage die — roll 1d5 on the relevant Critical Hit table.
+        </p>
+
+      </div>
+
     </div>
 
     <!-- Right: live feed -->
@@ -655,6 +822,7 @@ window._broadcastRoll = async (rollObj) => {
   rollObj.player = currentInputName;
 
   // If we aren't connected to a room, manually show it locally 
+  // since Firebase won't be echoing it back to us.
   if (!connected || !roomRef) {
     appendToFeed(rollObj, false);
     return;
@@ -727,6 +895,7 @@ let currentTab     = 'dnd';
 let srPool         = 6, srThresh = 2, srEdge = 0;
 let swPoolCounts   = {boost:0,setback:0,ability:0,difficulty:0,proficiency:0,challenge:0,force:0};
 let swBonusState   = {S:0,F:0,A:0,T:0,TR:0,DF:0};
+let bcDmgDice      = 1;
 
 // ── Room / connection ─────────────────────────────────────────────────────────
 function genRoom() {
@@ -854,6 +1023,151 @@ function rollCP() {
   }
 }
 
+let bcRollMode = 'melee'; // 'melee' | 'ranged' | 'other'
+
+function setBCType(mode, el) {
+  bcRollMode = mode;
+  ['melee','ranged','other'].forEach(m => {
+    document.getElementById('bc-type-' + m).classList.toggle('active', m === mode);
+    const row = document.getElementById('bc-' + m + '-row');
+    if (row) row.style.display = m === mode ? '' : 'none';
+  });
+  // Update char label and show/hide WSB field
+  const charLabel = document.getElementById('bc-char-label');
+  const wsbField  = document.getElementById('bc-wsb-field');
+  if (mode === 'melee')  { charLabel.textContent = 'Weapon Skill'; wsbField.style.display = ''; }
+  if (mode === 'ranged') { charLabel.textContent = 'Ballistic Skill'; wsbField.style.display = 'none'; }
+  if (mode === 'other')  { charLabel.textContent = 'Characteristic'; wsbField.style.display = 'none'; }
+  // Update hint text
+  const hints = {
+    melee:  'Swift Attack: 1 hit on first DoS + 1 per 2 additional DoS, max = WS Bonus. Lightning Attack: 1 hit per DoS, max = WS Bonus. DoS/DoF = 1 base + 1 per full 10 pts of margin.',
+    ranged: 'Semi-Auto Burst: 1 hit + 1 per 2 additional DoS, capped at weapon\'s RoF. Full Auto Burst: 1 hit per DoS, capped at RoF. Extra hits can spread to targets within 2m.',
+    other:  'Roll equal to or under your Characteristic + modifiers. DoS/DoF = 1 base + 1 per full 10 pts of margin above/below target.'
+  };
+  document.getElementById('bc-hint').textContent = hints[mode];
+}
+
+function rollBC() {
+  const char = parseInt(document.getElementById('bc-char').value) || 0;
+  const mod  = parseInt(document.getElementById('bc-mod').value)  || 0;
+
+  let actionType, actionMod, label, maxHits;
+
+  if (bcRollMode === 'melee') {
+    actionType    = document.getElementById('bc-melee-action').value;
+    label         = document.getElementById('bc-label').value.trim();
+    const wsb     = parseInt(document.getElementById('bc-wsb').value) || 4;
+    const charging = document.getElementById('bc-charging').checked;
+    const meleeMods = {
+      standard:10, swift:0, lightning:-10, allout:30,
+      called_m:-20, guarded:-10, knockdown:0
+    };
+    actionMod = (meleeMods[actionType] ?? 0) + (charging ? 20 : 0);
+    maxHits   = wsb;
+    if (charging) actionType = actionType + '_charge'; // flag for feed display
+
+  } else if (bcRollMode === 'ranged') {
+    actionType = document.getElementById('bc-ranged-action').value;
+    label      = document.getElementById('bc-label-r').value.trim();
+    const rof  = parseInt(document.getElementById('bc-rof').value) || 3;
+    const rangedMods = {
+      standard:10, semiauto:0, fullauto:-10,
+      called_r:-20, suppressing:-20, overwatch:0
+    };
+    actionMod = rangedMods[actionType] ?? 0;
+    maxHits   = rof;
+
+  } else {
+    // other test
+    actionType = 'skill';
+    label      = document.getElementById('bc-label-o').value.trim();
+    actionMod  = parseInt(document.getElementById('bc-other-diff').value) || 0;
+    maxHits    = 0;
+  }
+
+  const target  = Math.min(100, Math.max(1, char + mod + actionMod));
+  const roll    = Math.floor(Math.random() * 100) + 1;
+  const success = roll <= target;
+
+  let dos = 0, dof = 0;
+  if (success) {
+    dos = Math.floor((target - roll) / 10) + 1;
+  } else {
+    dof = Math.floor((roll - target - 1) / 10) + 1;
+  }
+
+  // Hit calculation — strip _charge suffix to get base action
+  const baseAction = actionType.replace('_charge', '');
+  let hits = 0;
+  if (success && bcRollMode !== 'other') {
+    if (baseAction === 'swift' || baseAction === 'semiauto') {
+      hits = Math.min(1 + Math.floor((dos - 1) / 2), maxHits);
+    } else if (baseAction === 'lightning' || baseAction === 'fullauto') {
+      hits = Math.min(dos, maxHits);
+    } else if (baseAction === 'suppressing' || baseAction === 'overwatch') {
+      hits = 0;
+    } else {
+      hits = 1;
+    }
+  }
+
+  broadcast({
+    system: 'bc', bcRollType: 'attack',
+    roll, target, char, mod, actionMod, maxHits,
+    success, dos, dof, hits,
+    actionType, rollMode: bcRollMode, label
+  });
+}
+
+function changeBCDmgDice(d) {
+  bcDmgDice = Math.max(1, Math.min(10, bcDmgDice + d));
+  document.getElementById('bc-dmg-dice').textContent = bcDmgDice;
+}
+
+function rollBCDamage() {
+  const bonus      = parseInt(document.getElementById('bc-dmg-bonus').value)    || 0;
+  const dmgType    = document.getElementById('bc-dmg-type').value;
+  const tearing    = document.getElementById('bc-tearing').checked;
+  const proven     = document.getElementById('bc-proven').checked;
+  const provenVal  = parseInt(document.getElementById('bc-proven-val').value)   || 3;
+  const primitive  = document.getElementById('bc-primitive').checked;
+  const primVal    = parseInt(document.getElementById('bc-primitive-val').value) || 7;
+  const label      = document.getElementById('bc-label').value.trim();
+
+  // Roll dice — Tearing adds 1 extra die, drop lowest
+  const diceToRoll = tearing ? bcDmgDice + 1 : bcDmgDice;
+  const rawFaces   = [];
+  for (let i = 0; i < diceToRoll; i++) rawFaces.push(Math.floor(Math.random() * 10) + 1);
+
+  // Tearing: find index of lowest die to drop
+  let dropIdx = -1;
+  if (tearing) {
+    dropIdx = rawFaces.indexOf(Math.min(...rawFaces));
+  }
+
+  // Surviving dice
+  const keptFaces = rawFaces.filter((_, i) => i !== dropIdx);
+
+  // Apply Primitive (cap) then Proven (floor) — order matters: cap first, then floor
+  const finalFaces = keptFaces.map(v => {
+    let val = v;
+    if (primitive) val = Math.min(val, primVal);
+    if (proven)    val = Math.max(val, provenVal);
+    return val;
+  });
+
+  // Zealous Hatred: natural 10 on any *kept* die (before Primitive cap)
+  const zealousHatred = keptFaces.some(v => v === 10);
+  const total = finalFaces.reduce((a, b) => a + b, 0) + bonus;
+
+  broadcast({
+    system: 'bc', bcRollType: 'damage',
+    rawFaces, dropIdx, keptFaces, finalFaces,
+    bonus, dmgType, tearing, proven, provenVal, primitive, primVal,
+    zealousHatred, total, diceCount: bcDmgDice, label
+  });
+}
+
 // Route through Firebase module if available, else show locally
 function broadcast(rollObj) {
   if (window._broadcastRoll) {
@@ -951,6 +1265,93 @@ function buildRollHTML(roll, isRemote) {
                            : `<span class="badge badge-danger">Failure</span>`;
     summaryHTML = `<div class="rsummary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
       ${badge}<span>${hits} hit${hits!==1?'s':''} · thresh ${roll.thresh}${roll.edge>0?` · +${roll.edge} edge`:''}</span></div>`;
+
+  } else if (roll.system === 'bc') {
+
+    if (roll.bcRollType === 'attack') {
+      const rollCls = roll.success ? 'nface hi' : 'nface lo';
+      facesHTML = `<span class="die-face ${rollCls}" style="min-width:40px;font-size:15px;font-family:var(--font-head);">${roll.roll}</span>`;
+
+      const actionLabels = {
+        standard:'Standard (+10)', swift:'Swift (+0)', lightning:'Lightning (−10)',
+        allout:'All Out (+30)', called_m:'Called Shot (−20)',
+        guarded:'Guarded (−10)', knockdown:'Knock Down',
+        standard_charge:'Standard + Charge (+30)', swift_charge:'Swift + Charge (+20)',
+        lightning_charge:'Lightning + Charge (+10)', allout_charge:'All Out + Charge (+50)',
+        called_m_charge:'Called Shot + Charge (−0)', guarded_charge:'Guarded + Charge (+10)',
+        knockdown_charge:'Knock Down + Charge (+20)',
+        semiauto:'Semi-Auto (+0)', fullauto:'Full Auto (−10)',
+        called_r:'Called Shot (−20)', suppressing:'Suppressing Fire (−20)',
+        overwatch:'Overwatch', skill:'Test'
+      };
+      const modeLabel = { melee:'⚔', ranged:'🎯', other:'🎲' };
+      const atkLabel  = (modeLabel[roll.rollMode] || '') + ' ' + (actionLabels[roll.actionType] || roll.actionType);
+      const modStr    = roll.mod ? ` ${roll.mod >= 0 ? '+' : ''}${roll.mod} mod` : '';
+      const targetStr = `<strong>${roll.target}</strong> (${roll.char}${modStr}, ${roll.actionMod >= 0 ? '+' : ''}${roll.actionMod})`;
+
+      const specialActions = { suppressing: 'Forces pinning — no direct hit', overwatch: 'Held — fires on trigger' };
+
+      if (roll.success) {
+        const badge = `<span class="badge badge-success">Hit — ${roll.dos} DoS</span>`;
+        let hitPart = '';
+        if (specialActions[roll.actionType]) {
+          hitPart = ` · <span style="color:var(--text2);font-style:italic;">${specialActions[roll.actionType]}</span>`;
+        } else if (roll.rollMode !== 'other' && roll.hits > 0) {
+          hitPart = ` · <span style="color:var(--accent);font-weight:700;">${roll.hits} hit${roll.hits !== 1 ? 's' : ''}</span>`;
+        }
+        summaryHTML = `<div class="rsummary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          ${badge}<span>${atkLabel} · target ${targetStr}${hitPart}</span></div>`;
+      } else {
+        const badge = `<span class="badge badge-danger">Miss — ${roll.dof} DoF</span>`;
+        summaryHTML = `<div class="rsummary" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          ${badge}<span>${atkLabel} · target ${targetStr}</span></div>`;
+      }
+
+    } else if (roll.bcRollType === 'damage') {
+      const dmgTypeColor = {I:'#5dade2', R:'#e74c3c', E:'#f39c12', X:'#a29bfe'};
+      const dmgTypeName  = {I:'Impact', R:'Rending', E:'Energy', X:'Explosive'};
+      const dtColor = dmgTypeColor[roll.dmgType] || 'var(--text)';
+      const dtName  = dmgTypeName[roll.dmgType]  || roll.dmgType;
+
+      // Render all raw dice; dropped die greyed & struck through
+      facesHTML = (roll.rawFaces || []).map((v, i) => {
+        const dropped = i === roll.dropIdx;
+        if (dropped) {
+          return `<span class="die-face nface" style="opacity:.3;text-decoration:line-through;" title="Dropped (Tearing)">${v}</span>`;
+        }
+        // Find corresponding final value
+        const keptIdx = (() => {
+          let k = 0;
+          for (let j = 0; j < i; j++) { if (j !== roll.dropIdx) k++; }
+          return k;
+        })();
+        const finalVal = roll.finalFaces ? roll.finalFaces[keptIdx] : v;
+        const isZealous = v === 10; // natural 10 before caps
+        const wasCapped = finalVal !== v;
+        const cls = isZealous ? 'nface' : 'nface';
+        const style = isZealous
+          ? 'style="outline:2px solid gold;background:#2a2400;color:gold;"'
+          : wasCapped ? 'style="color:var(--text3);"' : '';
+        const display = wasCapped ? `${finalVal}<span style="font-size:9px;opacity:.6;">(${v})</span>` : `${finalVal}`;
+        return `<span class="die-face ${cls}" ${style} title="${isZealous ? 'Natural 10 — Zealous Hatred!' : wasCapped ? `Capped from ${v}` : ''}">${display}</span>`;
+      }).join('');
+
+      const tags = [];
+      if (roll.tearing)   tags.push(`<span style="color:#a29bfe;font-size:10px;">[Tearing]</span>`);
+      if (roll.proven)    tags.push(`<span style="color:#5dade2;font-size:10px;">[Proven ${roll.provenVal}]</span>`);
+      if (roll.primitive) tags.push(`<span style="color:var(--text3);font-size:10px;">[Primitive ${roll.primVal}]</span>`);
+      const bonusStr = roll.bonus ? ` + ${roll.bonus}` : '';
+      const furyStr  = roll.zealousHatred
+        ? `<span style="color:gold;font-weight:700;font-size:12px;">⚡ Zealous Hatred! (roll 1d5 on Crit table)</span>`
+        : '';
+
+      summaryHTML = `<div class="rsummary" style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;">
+        <span>Total: <strong style="font-size:14px;">${roll.total}</strong>${bonusStr ? ` (dice${bonusStr})` : ''}</span>
+        <span style="color:${dtColor};font-weight:600;">${dtName}</span>
+        ${tags.join(' ')}
+        ${furyStr}
+      </div>`;
+    }
 
   } else if (roll.system === 'cp') {
     if (roll.cpType === 'skill') {
